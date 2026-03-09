@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --lab-bg: #1a1614;
+  --lab-elevated: #2C1E1E;
+  --lab-surface: #3d2a2a;
+  --lab-border: #4a3838;
+  --lab-accent: #D4AF37;
+  --lab-text-primary: #F8F9FA;
+  --lab-text-muted: #b8b4b0;
+  --lab-danger: #c94a4a;
+}
+
+body {
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  line-height: 1.7;
+  background-color: var(--lab-bg);
+  color: var(--lab-text-primary);
+}
+
+/* 玻璃質感 */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
