@@ -1,0 +1,11 @@
+body { font-family: Arial, sans-serif; background:#f5f7fb; margin:0; }
+.container { max-width: 860px; margin: 24px auto; padding: 0 16px; }
+.card { background:#fff; border-radius:10px; padding:16px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin:16px 0; }
+label { display:block; margin:12px 0; font-weight:600; }
+input, textarea, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
+textarea { min-height:150px; }
+button { background:#0a66ff; color:#fff; border:none; border-radius:8px; cursor:pointer; }
+button:hover { background:#004fd1; }
+.hidden { display:none; }
+.error { color:#b00020; margin-top:12px; font-weight:700; }
+.success { color:#0a7f2e; margin-top:12px; font-weight:700; }

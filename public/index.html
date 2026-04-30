@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kaifa 訪談分析系統 MVP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Kaifa 訪談分析系統 MVP</h1>
+      <p>輸入訪談資料，系統將以規則產生分析報告（非 AI 版本）。</p>
+
+      <form id="interviewForm" class="card">
+        <label>受訪者姓名<input name="name" required minlength="2" /></label>
+        <label>部門<input name="department" required minlength="2" /></label>
+        <label>訪談日期<input name="interviewDate" type="date" required /></label>
+        <label>訪談逐字稿<textarea name="transcript" required minlength="30" maxlength="10000"></textarea></label>
+        <button type="submit">送出並產生分析</button>
+      </form>
+
+      <section id="message"></section>
+      <section id="result" class="card hidden"></section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
