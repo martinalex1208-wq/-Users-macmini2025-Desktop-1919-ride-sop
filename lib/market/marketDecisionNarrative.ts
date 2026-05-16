@@ -1,4 +1,4 @@
-import { MarketAlert } from './alertEngine';
+import { MarketAlert } from './types';
 import { RiskRegime } from './regime';
 import { IndicatorRisk } from './types';
 
