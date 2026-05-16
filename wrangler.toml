@@ -1,16 +1,18 @@
 name = "vibe-market-radar"
+
 main = ".open-next/worker.js"
-compatibility_date = "2026-05-16"
 
-[[kv_namespaces]]
-binding = "MARKET_HISTORY_KV"
-id = "replace-with-history-kv-id"
+compatibility_date = "2026-05-17"
 
-[[kv_namespaces]]
-binding = "MARKET_ALERTS_KV"
-id = "replace-with-alert-kv-id"
+workers_dev = true
 
 [vars]
 RUNTIME_TARGET = "cloudflare"
-MARKET_HISTORY_KV = "enabled"
-MARKET_ALERTS_KV = "enabled"
+
+[[kv_namespaces]]
+binding = "MARKET_HISTORY_STORE"
+id = "MARKET_HISTORY_STORE_ID"
+
+[[kv_namespaces]]
+binding = "MARKET_ALERTS_STORE"
+id = "MARKET_ALERTS_STORE_ID"
