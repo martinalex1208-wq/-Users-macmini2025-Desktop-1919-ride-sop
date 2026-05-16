@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node scripts/smoke-tests.mjs",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "wrangler dev",
+    "cf:deploy": "wrangler deploy"
   },
   "dependencies": {
     "lucide-react": "^0.460.0",

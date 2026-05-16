@@ -1,0 +1,98 @@
+[
+  {
+    "timestamp": "2026-05-16T15:04:53.160Z",
+    "totalScore": 61.1,
+    "indicators": [
+      {
+        "key": "DXY",
+        "riskScore": 53.84,
+        "weightedScore": 8.076,
+        "value": 104.2
+      },
+      {
+        "key": "US10Y",
+        "riskScore": 52.16,
+        "weightedScore": 7.824,
+        "value": 4.41
+      },
+      {
+        "key": "USDJPY",
+        "riskScore": 52.98,
+        "weightedScore": 7.946999999999999,
+        "value": 155.8
+      },
+      {
+        "key": "VIX",
+        "riskScore": 75.55,
+        "weightedScore": 15.11,
+        "value": 22.8
+      },
+      {
+        "key": "SP500",
+        "riskScore": 62.24,
+        "weightedScore": 9.336,
+        "value": 5232.4
+      },
+      {
+        "key": "NASDAQ",
+        "riskScore": 67.16,
+        "weightedScore": 6.715999999999999,
+        "value": 16553.8
+      },
+      {
+        "key": "EEM",
+        "riskScore": 60.44,
+        "weightedScore": 6.044,
+        "value": 41.9
+      }
+    ]
+  },
+  {
+    "timestamp": "2026-05-16T15:05:34.340Z",
+    "totalScore": 61.1,
+    "indicators": [
+      {
+        "key": "DXY",
+        "riskScore": 53.84,
+        "weightedScore": 8.076,
+        "value": 104.2
+      },
+      {
+        "key": "US10Y",
+        "riskScore": 52.16,
+        "weightedScore": 7.824,
+        "value": 4.41
+      },
+      {
+        "key": "USDJPY",
+        "riskScore": 52.98,
+        "weightedScore": 7.946999999999999,
+        "value": 155.8
+      },
+      {
+        "key": "VIX",
+        "riskScore": 75.55,
+        "weightedScore": 15.11,
+        "value": 22.8
+      },
+      {
+        "key": "SP500",
+        "riskScore": 62.24,
+        "weightedScore": 9.336,
+        "value": 5232.4
+      },
+      {
+        "key": "NASDAQ",
+        "riskScore": 67.16,
+        "weightedScore": 6.715999999999999,
+        "value": 16553.8
+      },
+      {
+        "key": "EEM",
+        "riskScore": 60.44,
+        "weightedScore": 6.044,
+        "value": 41.9
+      }
+    ]
+  }
+]
