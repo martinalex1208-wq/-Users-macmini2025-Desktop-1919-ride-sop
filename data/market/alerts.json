@@ -61,5 +61,32 @@
     "timestamp": "2026-05-17T02:47:28.464Z",
     "triggerSource": "EEM",
     "active": true
+  },
+  {
+    "id": "global-global-risk-rising-2026-05-17t04:43:35.881z",
+    "level": "warning",
+    "title": "Global risk rising",
+    "description": "Global risk score is 65.4.",
+    "timestamp": "2026-05-17T04:43:35.881Z",
+    "triggerSource": "global",
+    "active": false
+  },
+  {
+    "id": "vix-vix-warning-zone-2026-05-17t04:43:35.881z",
+    "level": "warning",
+    "title": "VIX warning zone",
+    "description": "VIX at 18.43 with 6.78% move.",
+    "timestamp": "2026-05-17T04:43:35.881Z",
+    "triggerSource": "VIX",
+    "active": false
+  },
+  {
+    "id": "eem-eem-collapse-signal-2026-05-17t04:43:35.881z",
+    "level": "critical",
+    "title": "EEM collapse signal",
+    "description": "EEM fell -3.43% today.",
+    "timestamp": "2026-05-17T04:43:35.881Z",
+    "triggerSource": "EEM",
+    "active": true
   }
 ]

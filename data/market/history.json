@@ -142,5 +142,53 @@
         "value": 65.07
       }
     ]
+  },
+  {
+    "timestamp": "2026-05-17T04:43:35.881Z",
+    "totalScore": 65.4,
+    "indicators": [
+      {
+        "key": "DXY",
+        "riskScore": 54.68,
+        "weightedScore": 8.202,
+        "value": 99.27
+      },
+      {
+        "key": "US10Y",
+        "riskScore": 86,
+        "weightedScore": 12.9,
+        "value": 4.59
+      },
+      {
+        "key": "USDJPY",
+        "riskScore": 48.08,
+        "weightedScore": 7.212,
+        "value": 158.73
+      },
+      {
+        "key": "VIX",
+        "riskScore": 57.120000000000005,
+        "weightedScore": 11.424000000000001,
+        "value": 18.43
+      },
+      {
+        "key": "SP500",
+        "riskScore": 64.88,
+        "weightedScore": 9.732,
+        "value": 7408.5
+      },
+      {
+        "key": "NASDAQ",
+        "riskScore": 68.48,
+        "weightedScore": 6.848000000000001,
+        "value": 26225.14
+      },
+      {
+        "key": "EEM",
+        "riskScore": 91.16,
+        "weightedScore": 9.116,
+        "value": 65.07
+      }
+    ]
   }
 ]
