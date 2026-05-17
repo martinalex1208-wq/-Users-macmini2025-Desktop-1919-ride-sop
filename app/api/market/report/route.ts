@@ -21,31 +21,31 @@ export async function GET() {
 
   const activeAlerts = getActiveAlerts();
 
-  const narrative = `今日全球市場風險分數為 ${risk.totalScore}，主要風險來源為 ${topRiskContributors
+  const narrative = `Global market risk score is ${risk.totalScore}. Main risk contributors are ${topRiskContributors
     .map((i) => i.key)
-    .join('、')}，目前市場狀態為 ${regime}。`;
+    .join(', ')}. Current market regime is ${regime}.`;
 
   const decision =
     regime === 'Risk Off' || regime === 'Crisis'
-      ? '建議降低高波動部位，提高現金比重，避免追價。'
-      : '目前可維持中性配置，但仍需持續觀察市場波動。';
+      ? 'Suggestion: reduce high-volatility exposure, raise cash level, and avoid chasing momentum.'
+      : 'Suggestion: maintain neutral exposure, but continue monitoring market volatility.';
 
   const humanSummary = [
-    '【Vibe Market Radar】',
+    '[Vibe Market Radar]',
     '',
-    `時間：${new Date().toLocaleString('zh-TW')}`,
-    `市場狀態：${regime}`,
-    `風險分數：${risk.totalScore}`,
+    `Time: ${new Date().toISOString()}`,
+    `Market Regime: ${regime}`,
+    `Risk Score: ${risk.totalScore}`,
     '',
-    '主要風險：',
-    ...topRiskContributors.map((i) => `- ${i.key}（${i.weightedScore}）`),
+    'Top Risks:',
+    ...topRiskContributors.map((i) => `- ${i.key} (${i.weightedScore})`),
     '',
-    `目前警報數量：${activeAlerts.length}`,
+    `Active Alerts: ${activeAlerts.length}`,
     '',
-    'AI 市場分析：',
+    'Market Analysis:',
     narrative,
     '',
-    'AI 建議：',
+    'Decision:',
     decision,
   ].join('\n');
 
