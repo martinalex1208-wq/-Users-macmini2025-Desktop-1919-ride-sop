@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildIndicatorHistory, getSnapshots } from '@/lib/market/historyStore';
-import { MarketHistoryResponse } from '@/lib/market/types';
+import { MarketHistoryRange, MarketHistoryResponse } from '@/lib/market/types';
+
+const parseRange = (raw: string | null): MarketHistoryRange => {
+  if (raw === '90d') return '90d';
+  if (raw === 'all') return 'all';
+  return '30d';
+};
 
 export async function GET(req: NextRequest) {
-  const raw = req.nextUrl.searchParams.get('range');
-  const range = raw === '90d' ? '90d' : '30d';
+  const range = parseRange(req.nextUrl.searchParams.get('range'));
 
   const snapshots = getSnapshots(range);
   const payload: MarketHistoryResponse = {

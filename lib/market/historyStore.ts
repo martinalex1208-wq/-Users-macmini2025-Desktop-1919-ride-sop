@@ -60,7 +60,8 @@ export const getAllAlerts = () => cache.alerts;
 export const getRecentAlerts = (limit = 20) => cache.alerts.slice(-Math.max(1, limit)).reverse();
 export const getActiveAlerts = () => cache.alerts.filter((a) => a.active).slice(-20).reverse();
 
-export const getSnapshots = (range: '30d' | '90d' = '30d') => {
+export const getSnapshots = (range: '30d' | '90d' | 'all' = '30d') => {
+  if (range === 'all') return cache.snapshots.slice();
   const days = range === '30d' ? 30 : 90;
   const cutoff = Date.now() - days * DAY_MS;
   return cache.snapshots.filter((s) => new Date(s.timestamp).getTime() >= cutoff);

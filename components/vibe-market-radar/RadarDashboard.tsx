@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { calculateRisk, DEFAULT_WEIGHTS } from '@/lib/market/riskEngine';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { calculateRisk, DEFAULT_WEIGHTS, toRiskLevel } from '@/lib/market/riskEngine';
 import { toRiskRegime, RiskRegime } from '@/lib/market/regime';
 import {
   IndicatorData,
@@ -13,6 +13,7 @@ import {
   MarketApiResponse,
   MarketDataMode,
   MarketHistoryPoint,
+  MarketHistoryRange,
   MarketHistoryResponse,
   RiskLevel,
   RiskResult,
@@ -30,6 +31,13 @@ const levelRing: Record<RiskLevel, string> = {
   yellow: 'ring-yellow-200 bg-yellow-50 text-yellow-900',
   orange: 'ring-orange-200 bg-orange-50 text-orange-900',
   red: 'ring-red-200 bg-red-50 text-red-900',
+};
+
+const levelStroke: Record<RiskLevel, string> = {
+  green: '#059669',
+  yellow: '#ca8a04',
+  orange: '#ea580c',
+  red: '#dc2626',
 };
 
 const levelLabel: Record<RiskLevel, string> = {
@@ -72,6 +80,23 @@ const indicatorReason: Record<IndicatorKey, string> = {
   EEM: 'Emerging market underperformance signals global liquidity stress.',
 };
 
+type TrendDirection = 'rising' | 'falling' | 'flat';
+type VelocityTrend = 'accelerating' | 'cooling' | 'stable';
+
+interface VelocityInsight {
+  delta3: number | null;
+  delta7: number | null;
+  trend: VelocityTrend;
+  direction: TrendDirection;
+}
+
+interface TimelineEvent {
+  index: number;
+  label: string;
+  level: MarketAlert['level'];
+  timestamp: string;
+}
+
 const parseWeights = (raw: string | null): Record<IndicatorKey, number> => {
   if (!raw) return DEFAULT_WEIGHTS;
   try {
@@ -90,9 +115,99 @@ const parseWeights = (raw: string | null): Record<IndicatorKey, number> => {
 };
 
 const formatDelta = (delta: number) => {
-  if (Math.abs(delta) < 0.1) return 'flat';
+  if (Math.abs(delta) < 0.1) return '0.0';
   const sign = delta > 0 ? '+' : '';
   return `${sign}${delta.toFixed(1)}`;
+};
+
+const formatDate = (iso: string, withTime = false) => {
+  const d = new Date(iso);
+  if (!withTime) {
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const computeMovingAverage = (points: MarketHistoryPoint[], window = 7): Array<number | null> => {
+  if (points.length === 0) return [];
+  return points.map((_, i) => {
+    if (i < window - 1) return null;
+    let sum = 0;
+    for (let j = i - window + 1; j <= i; j += 1) sum += points[j].totalScore;
+    return sum / window;
+  });
+};
+
+const computeStats = (points: MarketHistoryPoint[]) => {
+  if (points.length === 0) {
+    return { current: null, high: null, low: null, avg: null };
+  }
+  const scores = points.map((p) => p.totalScore);
+  const current = scores[scores.length - 1];
+  const high = Math.max(...scores);
+  const low = Math.min(...scores);
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  return { current, high, low, avg };
+};
+
+const findScoreNDaysAgo = (
+  points: MarketHistoryPoint[],
+  days: number,
+): number | null => {
+  if (points.length === 0) return null;
+  const targetMs = new Date(points[points.length - 1].timestamp).getTime() - days * 24 * 60 * 60 * 1000;
+  let best: MarketHistoryPoint | null = null;
+  let bestDiff = Infinity;
+  for (const p of points) {
+    const diff = Math.abs(new Date(p.timestamp).getTime() - targetMs);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = p;
+    }
+  }
+  return best ? best.totalScore : null;
+};
+
+const computeVelocity = (points: MarketHistoryPoint[]): VelocityInsight => {
+  if (points.length < 2) {
+    return { delta3: null, delta7: null, trend: 'stable', direction: 'flat' };
+  }
+  const last = points[points.length - 1].totalScore;
+  const score3 = findScoreNDaysAgo(points, 3);
+  const score7 = findScoreNDaysAgo(points, 7);
+  const delta3 = score3 !== null ? last - score3 : null;
+  const delta7 = score7 !== null ? last - score7 : null;
+
+  const reference = delta7 ?? delta3 ?? 0;
+  const direction: TrendDirection =
+    Math.abs(reference) < 1.5 ? 'flat' : reference > 0 ? 'rising' : 'falling';
+
+  let trend: VelocityTrend = 'stable';
+  if (delta3 !== null && delta7 !== null) {
+    const rate3 = delta3 / 3;
+    const rate7 = delta7 / 7;
+    if (Math.abs(delta7) < 2 && Math.abs(delta3) < 1.5) {
+      trend = 'stable';
+    } else if (Math.sign(rate3) !== Math.sign(rate7) && Math.abs(rate3) > 0.3) {
+      trend = 'cooling';
+    } else if (Math.abs(rate3) > Math.abs(rate7) * 1.25 && Math.sign(rate3) === Math.sign(rate7)) {
+      trend = 'accelerating';
+    } else if (Math.abs(rate3) < Math.abs(rate7) * 0.6) {
+      trend = 'cooling';
+    } else {
+      trend = 'stable';
+    }
+  } else if (delta3 !== null) {
+    if (Math.abs(delta3) < 1.5) trend = 'stable';
+    else trend = Math.abs(delta3) / 3 > 1 ? 'accelerating' : 'stable';
+  }
+
+  return { delta3, delta7, trend, direction };
 };
 
 const buildTrendInterpretation = (
@@ -143,6 +258,7 @@ const buildAiInterpretation = (
   regime: RiskRegime,
   points: MarketHistoryPoint[],
   activeAlerts: MarketAlert[],
+  velocity: VelocityInsight,
 ): string => {
   const sorted = [...current.indicators].sort((a, b) => b.weightedScore - a.weightedScore);
   const topThree = sorted.slice(0, 3);
@@ -158,6 +274,13 @@ const buildAiInterpretation = (
           : `The trajectory has eased by ${Math.abs(delta).toFixed(1)} pts across the visible window.`;
       })()
     : 'Historical data is accumulating, so trend signals are limited.';
+
+  const velocityClause =
+    velocity.trend === 'accelerating'
+      ? 'Short-term velocity is accelerating, suggesting momentum is building.'
+      : velocity.trend === 'cooling'
+        ? 'Short-term velocity is cooling, suggesting the recent move is losing steam.'
+        : 'Short-term velocity is stable, with no clear acceleration or reversal yet.';
 
   const alertClause = activeAlerts.length === 0
     ? 'No active alerts are currently firing.'
@@ -176,6 +299,7 @@ const buildAiInterpretation = (
     `Global risk sits at ${current.totalScore.toFixed(1)} / 100 (${levelLabel[current.level]}, ${regime}).`,
     `${hottest ? `The largest contributor is ${indicatorLabel[hottest.key]}, accounting for ${hottest.weightedScore.toFixed(1)} pts of the composite.` : ''} ${calmest && calmest.key !== hottest?.key ? `The most benign reading is ${indicatorLabel[calmest.key]} at ${calmest.weightedScore.toFixed(1)} pts.` : ''}`.trim(),
     trendClause,
+    velocityClause,
     alertClause,
     regimeAdvice,
   ].join(' ');
@@ -192,16 +316,109 @@ const buildAlertExplanation = (alert: MarketAlert): string => {
   return `Triggered by ${indicatorLabel[key] ?? key}. ${indicatorReason[key] ?? ''}`.trim();
 };
 
-const TrendChart = ({
-  points,
-  level,
-}: {
+const buildTimelineEvents = (
+  points: MarketHistoryPoint[],
+  alerts: MarketAlert[],
+  history: MarketHistoryResponse | null,
+): TimelineEvent[] => {
+  if (points.length === 0) return [];
+  const indicatorHistory = history?.indicatorHistory;
+
+  const labelFor = (alert: MarketAlert): string => {
+    if (alert.triggerSource === 'VIX') return 'VIX spike';
+    if (alert.triggerSource === 'EEM') return 'EEM collapse';
+    if (alert.triggerSource === 'global') return 'Global risk spike';
+    if (alert.triggerSource === 'regime') return 'Regime change';
+    return `${alert.triggerSource} alert`;
+  };
+
+  const findNearestIndex = (timestamp: string): number => {
+    const ts = new Date(timestamp).getTime();
+    let best = 0;
+    let bestDiff = Infinity;
+    points.forEach((p, idx) => {
+      const diff = Math.abs(new Date(p.timestamp).getTime() - ts);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = idx;
+      }
+    });
+    return best;
+  };
+
+  const fromAlerts: TimelineEvent[] = alerts
+    .filter((a) => a.level === 'danger' || a.level === 'critical')
+    .map((a) => ({
+      index: findNearestIndex(a.timestamp),
+      label: labelFor(a),
+      level: a.level,
+      timestamp: a.timestamp,
+    }));
+
+  // Add detected spikes from indicator history (synthetic markers)
+  if (indicatorHistory) {
+    const vix = indicatorHistory.VIX ?? [];
+    vix.forEach((v, i) => {
+      if (i === 0) return;
+      const prev = vix[i - 1].value;
+      if (v.value > 28 && prev > 0 && (v.value - prev) / prev > 0.18) {
+        fromAlerts.push({
+          index: findNearestIndex(v.timestamp),
+          label: 'VIX spike',
+          level: 'danger',
+          timestamp: v.timestamp,
+        });
+      }
+    });
+    const eem = indicatorHistory.EEM ?? [];
+    eem.forEach((v, i) => {
+      if (i === 0) return;
+      const prev = eem[i - 1].value;
+      if (prev > 0 && (v.value - prev) / prev < -0.04) {
+        fromAlerts.push({
+          index: findNearestIndex(v.timestamp),
+          label: 'EEM collapse',
+          level: 'critical',
+          timestamp: v.timestamp,
+        });
+      }
+    });
+  }
+
+  // De-duplicate (same index + label keep the most severe)
+  const dedup = new Map<string, TimelineEvent>();
+  for (const ev of fromAlerts) {
+    const key = `${ev.index}|${ev.label}`;
+    const existing = dedup.get(key);
+    if (!existing) dedup.set(key, ev);
+    else if (existing.level !== 'critical' && ev.level === 'critical') dedup.set(key, ev);
+  }
+  return Array.from(dedup.values()).sort((a, b) => a.index - b.index);
+};
+
+interface TimelineChartProps {
   points: MarketHistoryPoint[];
   level: RiskLevel;
-}) => {
+  events: TimelineEvent[];
+  movingAverage: Array<number | null>;
+  topContributorsAt: (idx: number) => string;
+  alertsAt: (idx: number) => number;
+}
+
+const TimelineChart = ({
+  points,
+  level,
+  events,
+  movingAverage,
+  topContributorsAt,
+  alertsAt,
+}: TimelineChartProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   if (points.length < 2) {
     return (
-      <div className="flex h-56 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center px-6">
+      <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-center px-6">
         <p className="text-sm font-medium text-slate-700">Historical data is accumulating</p>
         <p className="mt-1 text-xs text-slate-500">
           We need at least two daily snapshots to plot a meaningful timeline. The chart will populate after the next refresh.
@@ -210,49 +427,169 @@ const TrendChart = ({
     );
   }
 
-  const w = 720;
-  const h = 240;
-  const padX = 28;
-  const padY = 24;
-  const stepX = (w - padX * 2) / (points.length - 1);
-  const y = (v: number) => h - padY - (v / 100) * (h - padY * 2);
-  const path = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${padX + i * stepX} ${y(p.totalScore)}`)
+  const w = 760;
+  const h = 280;
+  const padL = 36;
+  const padR = 18;
+  const padT = 16;
+  const padB = 34;
+  const innerW = w - padL - padR;
+  const innerH = h - padT - padB;
+  const stepX = innerW / (points.length - 1);
+  const y = (v: number) => padT + innerH - (v / 100) * innerH;
+  const x = (i: number) => padL + i * stepX;
+
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(p.totalScore)}`).join(' ');
+  const areaPath = `${path} L ${x(points.length - 1)} ${padT + innerH} L ${padL} ${padT + innerH} Z`;
+  const maPath = movingAverage
+    .map((v, i) => (v === null ? null : `${i === 0 || movingAverage[i - 1] === null ? 'M' : 'L'} ${x(i)} ${y(v)}`))
+    .filter(Boolean)
     .join(' ');
 
-  const areaPath = `${path} L ${padX + (points.length - 1) * stepX} ${h - padY} L ${padX} ${h - padY} Z`;
+  const stroke = levelStroke[level];
 
-  const stroke =
-    level === 'red' ? '#dc2626' : level === 'orange' ? '#ea580c' : level === 'yellow' ? '#ca8a04' : '#059669';
+  const tickCount = Math.min(6, points.length);
+  const tickIdxs: number[] = [];
+  for (let i = 0; i < tickCount; i += 1) {
+    tickIdxs.push(Math.round((i * (points.length - 1)) / Math.max(1, tickCount - 1)));
+  }
+
+  const hoverPoint = hoverIdx !== null ? points[hoverIdx] : null;
+  const hoverMa = hoverIdx !== null ? movingAverage[hoverIdx] : null;
+  const hoverLevel = hoverPoint ? toRiskLevel(hoverPoint.totalScore) : null;
+  const hoverRegime = hoverPoint ? toRiskRegime(hoverPoint.totalScore) : null;
+
+  const onMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * w;
+    const rel = px - padL;
+    if (rel < -stepX / 2 || rel > innerW + stepX / 2) {
+      setHoverIdx(null);
+      return;
+    }
+    const idx = Math.max(0, Math.min(points.length - 1, Math.round(rel / stepX)));
+    setHoverIdx(idx);
+  };
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-60">
-      <rect x={padX} y={y(100)} width={w - padX * 2} height={y(70) - y(100)} fill="#fecaca" opacity="0.45" />
-      <rect x={padX} y={y(70)} width={w - padX * 2} height={y(50) - y(70)} fill="#fed7aa" opacity="0.45" />
-      <rect x={padX} y={y(50)} width={w - padX * 2} height={y(30) - y(50)} fill="#fef9c3" opacity="0.55" />
-      <rect x={padX} y={y(30)} width={w - padX * 2} height={y(0) - y(30)} fill="#dcfce7" opacity="0.5" />
-      {[30, 50, 70].map((v) => (
-        <line key={v} x1={padX} x2={w - padX} y1={y(v)} y2={y(v)} stroke="#94a3b8" strokeDasharray="3 4" strokeWidth={1} />
-      ))}
-      <path d={areaPath} fill={stroke} opacity="0.12" />
-      <path d={path} stroke={stroke} strokeWidth={2.5} fill="none" strokeLinejoin="round" strokeLinecap="round" />
-      {points.map((p, i) => (
-        <circle
-          key={p.timestamp}
-          cx={padX + i * stepX}
-          cy={y(p.totalScore)}
-          r={i === points.length - 1 ? 4 : 2}
-          fill={i === points.length - 1 ? stroke : '#ffffff'}
-          stroke={stroke}
-          strokeWidth={1.5}
-        />
-      ))}
-      {[0, 30, 50, 70, 100].map((v) => (
-        <text key={v} x={padX - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="#64748b">
-          {v}
-        </text>
-      ))}
-    </svg>
+    <div ref={containerRef} className="relative">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="w-full h-72 select-none"
+        onMouseMove={onMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {/* risk bands */}
+        <rect x={padL} y={y(100)} width={innerW} height={y(70) - y(100)} fill="#fecaca" opacity="0.45" />
+        <rect x={padL} y={y(70)} width={innerW} height={y(50) - y(70)} fill="#fed7aa" opacity="0.45" />
+        <rect x={padL} y={y(50)} width={innerW} height={y(30) - y(50)} fill="#fef9c3" opacity="0.55" />
+        <rect x={padL} y={y(30)} width={innerW} height={y(0) - y(30)} fill="#dcfce7" opacity="0.5" />
+
+        {/* y gridlines */}
+        {[0, 30, 50, 70, 100].map((v) => (
+          <g key={v}>
+            <line x1={padL} x2={padL + innerW} y1={y(v)} y2={y(v)} stroke="#cbd5e1" strokeDasharray="3 4" strokeWidth={1} />
+            <text x={padL - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="#64748b">
+              {v}
+            </text>
+          </g>
+        ))}
+
+        {/* area + main line */}
+        <path d={areaPath} fill={stroke} opacity="0.1" />
+        <path d={path} stroke={stroke} strokeWidth={2.2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* moving average */}
+        {maPath && (
+          <path
+            d={maPath}
+            stroke="#1e293b"
+            strokeWidth={1.6}
+            fill="none"
+            strokeDasharray="4 4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        )}
+
+        {/* event markers */}
+        {events.map((ev, i) => {
+          const cx = x(ev.index);
+          const cy = y(points[ev.index].totalScore);
+          const color = ev.level === 'critical' ? '#b91c1c' : '#ea580c';
+          return (
+            <g key={`${ev.index}-${i}`}>
+              <line x1={cx} x2={cx} y1={padT} y2={cy} stroke={color} strokeDasharray="2 3" strokeWidth={1} opacity="0.6" />
+              <circle cx={cx} cy={cy} r={5} fill="#fff" stroke={color} strokeWidth={2} />
+              <text x={cx} y={padT - 4} textAnchor="middle" fontSize={9} fill={color} fontWeight={600}>
+                {ev.label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* x-axis date ticks */}
+        {tickIdxs.map((i) => (
+          <g key={`tick-${i}`}>
+            <line x1={x(i)} x2={x(i)} y1={padT + innerH} y2={padT + innerH + 4} stroke="#94a3b8" strokeWidth={1} />
+            <text x={x(i)} y={padT + innerH + 16} textAnchor="middle" fontSize={10} fill="#64748b">
+              {formatDate(points[i].timestamp)}
+            </text>
+          </g>
+        ))}
+
+        {/* hover guide */}
+        {hoverIdx !== null && (
+          <g pointerEvents="none">
+            <line x1={x(hoverIdx)} x2={x(hoverIdx)} y1={padT} y2={padT + innerH} stroke="#0f172a" strokeDasharray="2 3" strokeWidth={1} opacity="0.5" />
+            <circle cx={x(hoverIdx)} cy={y(points[hoverIdx].totalScore)} r={5} fill={stroke} stroke="#fff" strokeWidth={2} />
+            {hoverMa !== null && (
+              <circle cx={x(hoverIdx)} cy={y(hoverMa)} r={3.5} fill="#1e293b" stroke="#fff" strokeWidth={1.5} />
+            )}
+          </g>
+        )}
+
+        {/* last point */}
+        <circle cx={x(points.length - 1)} cy={y(points[points.length - 1].totalScore)} r={4} fill={stroke} stroke="#fff" strokeWidth={1.5} />
+      </svg>
+
+      {hoverIdx !== null && hoverPoint && hoverLevel && hoverRegime && (
+        <div
+          className="pointer-events-none absolute z-10 min-w-[200px] -translate-x-1/2 rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg"
+          style={{
+            left: `${((x(hoverIdx) / w) * 100).toFixed(2)}%`,
+            top: 4,
+          }}
+        >
+          <p className="font-semibold text-slate-900">{formatDate(hoverPoint.timestamp, true)}</p>
+          <p className="mt-1 flex items-center justify-between gap-3">
+            <span className="text-slate-500">Risk score</span>
+            <span className="font-semibold text-slate-900">{hoverPoint.totalScore.toFixed(1)}</span>
+          </p>
+          {hoverMa !== null && (
+            <p className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">7d MA</span>
+              <span className="text-slate-700">{hoverMa.toFixed(1)}</span>
+            </p>
+          )}
+          <p className="flex items-center justify-between gap-3">
+            <span className="text-slate-500">Regime</span>
+            <span className="text-slate-700">{hoverRegime}</span>
+          </p>
+          <p className="flex items-center justify-between gap-3">
+            <span className="text-slate-500">Level</span>
+            <span className="text-slate-700">{levelLabel[hoverLevel]}</span>
+          </p>
+          <p className="mt-1 text-slate-500">Top contributors</p>
+          <p className="font-medium text-slate-800">{topContributorsAt(hoverIdx)}</p>
+          <p className="mt-1 flex items-center justify-between gap-3">
+            <span className="text-slate-500">Active alerts</span>
+            <span className="text-slate-700">{alertsAt(hoverIdx)}</span>
+          </p>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -261,7 +598,7 @@ export default function RadarDashboard() {
   const [loading, setLoading] = useState(true);
   const [dataMode, setDataMode] = useState<MarketDataMode>('mock');
   const [asOf, setAsOf] = useState('');
-  const [range, setRange] = useState<'30d' | '90d'>('30d');
+  const [range, setRange] = useState<MarketHistoryRange>('30d');
   const [history, setHistory] = useState<MarketHistoryResponse | null>(null);
   const [activeAlerts, setActiveAlerts] = useState<MarketAlert[]>([]);
   const [latestAlerts, setLatestAlerts] = useState<MarketAlert[]>([]);
@@ -322,18 +659,51 @@ export default function RadarDashboard() {
     [risk.indicators],
   );
   const topContributors = sortedIndicators.slice(0, 3);
+
+  const stats = useMemo(() => computeStats(points), [points]);
+  const movingAverage = useMemo(() => computeMovingAverage(points, 7), [points]);
+  const velocity = useMemo(() => computeVelocity(points), [points]);
+  const events = useMemo(
+    () => buildTimelineEvents(points, [...activeAlerts, ...latestAlerts], history),
+    [points, activeAlerts, latestAlerts, history],
+  );
   const trendInterpretation = useMemo(
     () => buildTrendInterpretation(points, risk, regime),
     [points, risk, regime],
   );
   const aiInterpretation = useMemo(
-    () => buildAiInterpretation(risk, regime, points, activeAlerts),
-    [risk, regime, points, activeAlerts],
+    () => buildAiInterpretation(risk, regime, points, activeAlerts, velocity),
+    [risk, regime, points, activeAlerts, velocity],
   );
   const contributionTotal = Math.max(
     1,
     risk.indicators.reduce((sum: number, it: IndicatorRisk) => sum + it.weightedScore, 0),
   );
+
+  const indicatorHistory = history?.indicatorHistory;
+  const topContributorsAt = (idx: number): string => {
+    if (!indicatorHistory) return 'N/A';
+    const ts = points[idx]?.timestamp;
+    if (!ts) return 'N/A';
+    const contributions: Array<{ key: IndicatorKey; weighted: number }> = [];
+    (Object.keys(indicatorHistory) as IndicatorKey[]).forEach((key) => {
+      const series = indicatorHistory[key];
+      const sample = series.find((s) => s.timestamp === ts) ?? series[series.length - 1];
+      if (sample) contributions.push({ key, weighted: sample.weightedScore });
+    });
+    contributions.sort((a, b) => b.weighted - a.weighted);
+    const top = contributions.slice(0, 2).map((c) => c.key);
+    return top.length ? top.join(' · ') : 'N/A';
+  };
+
+  const allAlerts = useMemo(() => [...activeAlerts, ...latestAlerts], [activeAlerts, latestAlerts]);
+  const alertsAt = (idx: number): number => {
+    const ts = points[idx]?.timestamp;
+    if (!ts) return 0;
+    const target = new Date(ts).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+    return allAlerts.filter((a) => Math.abs(new Date(a.timestamp).getTime() - target) < oneDay).length;
+  };
 
   if (loading) {
     return (
@@ -342,6 +712,18 @@ export default function RadarDashboard() {
       </main>
     );
   }
+
+  const velocityBadgeStyle: Record<VelocityTrend, string> = {
+    accelerating: 'bg-red-100 text-red-800 ring-red-200',
+    cooling: 'bg-blue-100 text-blue-800 ring-blue-200',
+    stable: 'bg-slate-100 text-slate-700 ring-slate-200',
+  };
+
+  const directionLabel: Record<TrendDirection, string> = {
+    rising: 'Rising ↑',
+    falling: 'Falling ↓',
+    flat: 'Flat →',
+  };
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
@@ -393,10 +775,16 @@ export default function RadarDashboard() {
           <div className="space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-                {levelLabel[risk.level]}
+                Stress: {levelLabel[risk.level]}
               </span>
               <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
                 Regime: {regime}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ring-1 ${velocityBadgeStyle[velocity.trend]}`}>
+                Velocity: {velocity.trend}
+              </span>
+              <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+                Trend: {directionLabel[velocity.direction]}
               </span>
               {dayDelta !== null && (
                 <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
@@ -420,6 +808,10 @@ export default function RadarDashboard() {
               <li>· {risk.indicators.filter((i) => i.source === 'live').length} live feeds</li>
               <li>· {activeAlerts.length} active alert{activeAlerts.length === 1 ? '' : 's'}</li>
               <li>· {points.length} snapshot{points.length === 1 ? '' : 's'} on file</li>
+              <li>
+                · Velocity: {velocity.delta7 !== null ? `${formatDelta(velocity.delta7)} over 7d` : 'n/a 7d'}
+                {velocity.delta3 !== null ? `, ${formatDelta(velocity.delta3)} over 3d` : ''}
+              </li>
             </ul>
           </div>
         </div>
@@ -431,38 +823,105 @@ export default function RadarDashboard() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Historical Risk Timeline</h2>
             <p className="text-xs text-slate-500">
-              Composite risk score over time — shaded bands mark Low / Moderate / Elevated / High zones.
+              Composite risk score over time — dashed line is 7d moving average, markers flag stress events.
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setRange('30d')}
-              className={`rounded-md border px-3 py-1 text-sm ${
-                range === '30d'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              30d
-            </button>
-            <button
-              onClick={() => setRange('90d')}
-              className={`rounded-md border px-3 py-1 text-sm ${
-                range === '90d'
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-              }`}
-            >
-              90d
-            </button>
+            {(['30d', '90d', 'all'] as const).map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`rounded-md border px-3 py-1 text-sm ${
+                  range === r
+                    ? 'border-slate-900 bg-slate-900 text-white'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {r}
+              </button>
+            ))}
           </div>
         </div>
-        <TrendChart points={points} level={risk.level} />
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-          <span><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Low (0–30)</span>
-          <span><span className="inline-block h-2 w-2 rounded-full bg-yellow-400" /> Moderate (30–50)</span>
-          <span><span className="inline-block h-2 w-2 rounded-full bg-orange-500" /> Elevated (50–70)</span>
-          <span><span className="inline-block h-2 w-2 rounded-full bg-red-600" /> High (70–100)</span>
+
+        {points.length >= 2 ? (
+          <>
+            <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: 'Current', value: stats.current, color: 'text-slate-900' },
+                { label: 'High', value: stats.high, color: 'text-red-700' },
+                { label: 'Low', value: stats.low, color: 'text-emerald-700' },
+                { label: 'Avg', value: stats.avg, color: 'text-slate-700' },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    {s.label}
+                  </p>
+                  <p className={`text-xl font-bold ${s.color}`}>
+                    {s.value !== null ? s.value.toFixed(1) : '—'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              <span className="font-semibold uppercase tracking-wider text-slate-500">Risk velocity:</span>{' '}
+              {velocity.delta7 !== null && (
+                <span className="ml-1">
+                  <span className={velocity.delta7 >= 0 ? 'text-red-700' : 'text-emerald-700'}>
+                    {formatDelta(velocity.delta7)}
+                  </span>{' '}
+                  over 7d
+                </span>
+              )}
+              {velocity.delta3 !== null && (
+                <span className="ml-2">
+                  ·{' '}
+                  <span className={velocity.delta3 >= 0 ? 'text-red-700' : 'text-emerald-700'}>
+                    {formatDelta(velocity.delta3)}
+                  </span>{' '}
+                  over 3d
+                </span>
+              )}
+              <span className="ml-2">
+                ·{' '}
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ring-1 ${velocityBadgeStyle[velocity.trend]}`}
+                >
+                  {velocity.trend}
+                </span>
+              </span>
+            </div>
+          </>
+        ) : null}
+
+        <TimelineChart
+          points={points}
+          level={risk.level}
+          events={events}
+          movingAverage={movingAverage}
+          topContributorsAt={topContributorsAt}
+          alertsAt={alertsAt}
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+          <span>
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" /> Low (0–30)
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-yellow-400" /> Moderate (30–50)
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-orange-500" /> Elevated (50–70)
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-600" /> High (70–100)
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            <svg width="22" height="6">
+              <line x1="0" x2="22" y1="3" y2="3" stroke="#1e293b" strokeWidth="1.6" strokeDasharray="4 4" />
+            </svg>
+            7d moving average
+          </span>
         </div>
       </section>
 

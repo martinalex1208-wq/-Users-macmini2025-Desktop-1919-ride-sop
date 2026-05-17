@@ -34,9 +34,10 @@ export interface MarketApiResponse {
   missingSymbols: IndicatorKey[];
 }
 
+export type MarketHistoryRange = '30d' | '90d' | 'all';
 export interface MarketHistoryPoint { timestamp: string; totalScore: number; }
 export interface MarketHistoryResponse {
-  range: '30d' | '90d';
+  range: MarketHistoryRange;
   globalRiskHistory: MarketHistoryPoint[];
   indicatorHistory: Record<IndicatorKey, Array<{ timestamp: string; weightedScore: number; riskScore: number; value: number }>>;
 }
