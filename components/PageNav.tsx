@@ -9,10 +9,12 @@ import {
   Users,
   Package,
   BookOpen,
+  MapPin,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { id: "vision", label: "核心願景", icon: Target },
+  { id: "full-route", label: "🗺️ 全程概覽 (Full Route)", icon: MapPin },
   { id: "board", label: "環台行程表", icon: LayoutDashboard },
   { id: "ceo", label: "CEO 專案", icon: Crown },
   { id: "discipline", label: "紀律管理", icon: Scale },

@@ -22,6 +22,7 @@ const config: Config = {
         "lab-text-muted": "#b8b4b0",
         "lab-danger": "#c94a4a",
         "lab-danger-soft": "#e86a6a",
+        "lab-1919-blue": "#1e40af",
       },
       boxShadow: {
         glass: "0 8px 32px rgba(0, 0, 0, 0.28)",

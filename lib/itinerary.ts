@@ -60,3 +60,11 @@ export const REPAIR_SOP_ITEMS = [
   { label: "直覺維護", desc: "不需說明書即可自行處理" },
   { label: "良心問答", desc: "如果是我爸媽住這裡，我會放心嗎？" },
 ] as const;
+
+/** Day 6 案家修繕日 - 好用標準檢核表（互動檢核表） */
+export const DAY6_SERVICE_CHECKLIST_ITEMS = [
+  { label: "低調服務", desc: "確認衣著簡樸、不喧嘩。" },
+  { label: "尊重隱私", desc: "確認已徵得案家同意才拍照（或不拍照）。" },
+  { label: "安全第一", desc: "修繕工具擺放整齊，不影響案家具出入。" },
+  { label: "同理溝通", desc: "是否已傾聽案家需求？" },
+] as const;

@@ -1,0 +1,61 @@
+{
+  "hotels": [
+    {
+      "id": "hotel_001",
+      "name": "新竹國賓大飯店",
+      "nameEn": "Ambassador Hotel Hsinchu",
+      "coordinates": { "lat": 24.807, "lng": 120.974 },
+      "phone": "03-515-1111",
+      "starLevel": 5,
+      "bikeFriendly": true,
+      "address": "新竹市東區中華路二段188號",
+      "features": ["單車可進房", "室內安全停車", "自助洗衣"],
+      "notes": ""
+    },
+    {
+      "id": "hotel_002",
+      "name": "新竹老爺酒店",
+      "nameEn": "Hotel Royal Hsinchu",
+      "coordinates": { "lat": 24.777, "lng": 121.015 },
+      "phone": "03-563-1122",
+      "starLevel": 5,
+      "bikeFriendly": true,
+      "address": "新竹市東區光復路一段227號",
+      "features": ["專業維修工具借用", "高階 SPA 設施"],
+      "notes": ""
+    },
+    {
+      "id": "hotel_003",
+      "name": "",
+      "nameEn": "",
+      "coordinates": { "lat": null, "lng": null },
+      "phone": "",
+      "starLevel": 4,
+      "bikeFriendly": false,
+      "address": "",
+      "notes": ""
+    },
+    {
+      "id": "hotel_004",
+      "name": "",
+      "nameEn": "",
+      "coordinates": { "lat": null, "lng": null },
+      "phone": "",
+      "starLevel": 5,
+      "bikeFriendly": false,
+      "address": "",
+      "notes": ""
+    },
+    {
+      "id": "hotel_005",
+      "name": "",
+      "nameEn": "",
+      "coordinates": { "lat": null, "lng": null },
+      "phone": "",
+      "starLevel": 4,
+      "bikeFriendly": false,
+      "address": "",
+      "notes": ""
+    }
+  ]
+}

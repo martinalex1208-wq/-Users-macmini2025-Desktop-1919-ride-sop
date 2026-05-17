@@ -1,0 +1,74 @@
+{
+  "project_name": "Global Route Master",
+  "itineraries": [
+    {
+      "itinerary_day": 1,
+      "route": {
+        "from": "Taipei City (台北市)",
+        "to": "Hsinchu City (新竹市)",
+        "estimated_distance_km": 88.5,
+        "elevation": {
+          "total_ascent_m": 350,
+          "max_slope_percentage": 6,
+          "caution_points": [
+            {
+              "location": "桃園龜山長坡",
+              "note": "坡度較緩但長，單車族需保留體力"
+            },
+            {
+              "location": "新竹湖口台地",
+              "note": "逆風較強，建議機車與單車族注意側風"
+            }
+          ]
+        }
+      },
+      "transport_modes": {
+        "cycling": {
+          "avg_speed_kmh": 16,
+          "estimated_time_h": 5.5,
+          "route_pref": "台1線/台61線"
+        },
+        "driving": {
+          "avg_speed_kmh": 70,
+          "estimated_time_h": 1.2,
+          "route_pref": "國道1號"
+        },
+        "motorcycle": {
+          "avg_speed_kmh": 45,
+          "estimated_time_h": 2.0,
+          "route_pref": "台1線"
+        }
+      },
+      "accommodation_options": [
+        {
+          "name": "新竹國賓大飯店 (Ambassador Hotel Hsinchu)",
+          "stars": 5,
+          "address": "新竹市東區中華路二段188號",
+          "phone": "03-515-1111",
+          "features": ["單車可進房", "室內安全停車", "自助洗衣"],
+          "coordinates": { "lat": 24.807, "lng": 120.974 }
+        },
+        {
+          "name": "新竹老爺酒店 (Hotel Royal Hsinchu)",
+          "stars": 5,
+          "address": "新竹市東區光復路一段227號",
+          "phone": "03-563-1122",
+          "features": ["專業維修工具借用", "高階 SPA 設施"],
+          "coordinates": { "lat": 24.777, "lng": 121.015 }
+        }
+      ],
+      "gourmet_stops": [
+        {
+          "name": "新竹城隍廟口小吃",
+          "type": "Local Food",
+          "must_try": "米粉、貢丸湯"
+        },
+        {
+          "name": "新屋綠色隧道咖啡",
+          "type": "Rest Point",
+          "note": "適合單車族補給"
+        }
+      ]
+    }
+  ]
+}

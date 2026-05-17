@@ -5,7 +5,7 @@ import { ChevronDown, MapPin, Bike, Crown } from "lucide-react";
 import type { DayItinerary } from "@/lib/itinerary";
 import ComplianceModal from "./ComplianceModal";
 import RepairSOPModal from "./RepairSOPModal";
-import { COMPLIANCE_ITEMS, REPAIR_SOP_ITEMS } from "@/lib/itinerary";
+import { COMPLIANCE_ITEMS, DAY6_SERVICE_CHECKLIST_ITEMS } from "@/lib/itinerary";
 
 interface ItineraryListProps {
   items: DayItinerary[];
@@ -30,7 +30,7 @@ export default function ItineraryList({ items }: ItineraryListProps) {
       if (!repairChecklist[item.day]) {
         setRepairChecklist((prev) => ({
           ...prev,
-          [item.day]: REPAIR_SOP_ITEMS.map(() => false),
+          [item.day]: DAY6_SERVICE_CHECKLIST_ITEMS.map(() => false),
         }));
       }
     } else if (item.isMajor) {
@@ -58,7 +58,7 @@ export default function ItineraryList({ items }: ItineraryListProps) {
 
   const toggleRepairCheck = (day: number, index: number) => {
     setRepairChecklist((prev) => {
-      const arr = prev[day] ?? REPAIR_SOP_ITEMS.map(() => false);
+      const arr = prev[day] ?? DAY6_SERVICE_CHECKLIST_ITEMS.map(() => false);
       const next = [...arr];
       next[index] = !next[index];
       return { ...prev, [day]: next };
@@ -192,7 +192,7 @@ export default function ItineraryList({ items }: ItineraryListProps) {
         }}
         checklist={
           modalItem
-            ? (repairChecklist[modalItem.day] ?? REPAIR_SOP_ITEMS.map(() => false))
+            ? (repairChecklist[modalItem.day] ?? DAY6_SERVICE_CHECKLIST_ITEMS.map(() => false))
             : []
         }
         onToggle={(i) => modalItem && toggleRepairCheck(modalItem.day, i)}

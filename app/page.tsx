@@ -1,6 +1,8 @@
 import Navbar from "@/components/Navbar";
 import PageNav from "@/components/PageNav";
+import RouteContentWrapper from "@/components/RouteContentWrapper";
 import BoardSection from "@/components/sections/BoardSection";
+import FullRouteOverviewSection from "@/components/sections/FullRouteOverviewSection";
 import VisionSection from "@/components/sections/VisionSection";
 import CEOSection from "@/components/sections/CEOSection";
 import TeamDisciplineSection from "@/components/sections/TeamDisciplineSection";
@@ -24,14 +26,17 @@ export default function Home() {
 
         {/* 主內容區 */}
         <main className="min-w-0 flex-1 space-y-12">
-          <VisionSection />
-          <BoardSection />
+          <RouteContentWrapper>
+            <VisionSection />
+            <FullRouteOverviewSection />
+            <BoardSection />
           <CEOSection />
           <TeamDisciplineSection />
           <SafetyRideSection />
           <TLZoneSection />
           <EquipmentChecklistSection />
           <WarriorStoriesSection />
+          </RouteContentWrapper>
 
           <footer className="border-t border-slate-200 pt-12 text-center text-sm text-slate-500">
             Beyond AI Lab © 2026 · 1919 愛走動
