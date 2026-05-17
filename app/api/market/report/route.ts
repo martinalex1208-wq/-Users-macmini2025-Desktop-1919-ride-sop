@@ -3,6 +3,9 @@ import { mockIndicators } from '@/data/market/mockData';
 import { getActiveAlerts } from '@/lib/market/historyStore';
 import { generateDailyReport } from '@/lib/market/reportScheduler';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET() {
   const report = generateDailyReport(mockIndicators);
 
