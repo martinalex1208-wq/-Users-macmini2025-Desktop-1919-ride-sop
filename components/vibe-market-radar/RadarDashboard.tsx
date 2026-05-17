@@ -120,17 +120,47 @@ const formatDelta = (delta: number) => {
   return `${sign}${delta.toFixed(1)}`;
 };
 
+const pad = (n: number) => n.toString().padStart(2, '0');
+
 const formatDate = (iso: string, withTime = false) => {
   const d = new Date(iso);
   if (!withTime) {
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
   }
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatTickByRange = (iso: string, range: MarketHistoryRange): string => {
+  const d = new Date(iso);
+  if (range === '1d' || range === '7d') {
+    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  if (range === '30d') {
+    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+  }
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+};
+
+const RANGE_DAY_MAP: Record<Exclude<MarketHistoryRange, 'all'>, number> = {
+  '1d': 1,
+  '7d': 7,
+  '30d': 30,
+  '90d': 90,
+};
+
+const computeActualSpanDays = (points: MarketHistoryPoint[]): number => {
+  if (points.length < 2) return 0;
+  const first = new Date(points[0].timestamp).getTime();
+  const last = new Date(points[points.length - 1].timestamp).getTime();
+  return (last - first) / (24 * 60 * 60 * 1000);
+};
+
+const isRangeUnderfilled = (range: MarketHistoryRange, points: MarketHistoryPoint[]): boolean => {
+  if (range === 'all') return false;
+  if (points.length < 2) return false;
+  const requested = RANGE_DAY_MAP[range];
+  const actual = computeActualSpanDays(points);
+  return actual < requested * 0.6;
 };
 
 const computeMovingAverage = (points: MarketHistoryPoint[], window = 7): Array<number | null> => {
@@ -401,6 +431,7 @@ interface TimelineChartProps {
   level: RiskLevel;
   events: TimelineEvent[];
   movingAverage: Array<number | null>;
+  range: MarketHistoryRange;
   topContributorsAt: (idx: number) => string;
   alertsAt: (idx: number) => number;
 }
@@ -410,11 +441,13 @@ const TimelineChart = ({
   level,
   events,
   movingAverage,
+  range,
   topContributorsAt,
   alertsAt,
 }: TimelineChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverEventIdx, setHoverEventIdx] = useState<number | null>(null);
 
   if (points.length < 2) {
     return (
@@ -513,18 +546,35 @@ const TimelineChart = ({
           />
         )}
 
-        {/* event markers */}
+        {/* event markers (dots only — names shown on hover) */}
         {events.map((ev, i) => {
           const cx = x(ev.index);
           const cy = y(points[ev.index].totalScore);
           const color = ev.level === 'critical' ? '#b91c1c' : '#ea580c';
+          const isHover = hoverEventIdx === i;
           return (
             <g key={`${ev.index}-${i}`}>
-              <line x1={cx} x2={cx} y1={padT} y2={cy} stroke={color} strokeDasharray="2 3" strokeWidth={1} opacity="0.6" />
-              <circle cx={cx} cy={cy} r={5} fill="#fff" stroke={color} strokeWidth={2} />
-              <text x={cx} y={padT - 4} textAnchor="middle" fontSize={9} fill={color} fontWeight={600}>
-                {ev.label}
-              </text>
+              <circle
+                cx={cx}
+                cy={cy - 14}
+                r={isHover ? 6 : 4.5}
+                fill={color}
+                stroke="#fff"
+                strokeWidth={1.5}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoverEventIdx(i)}
+                onMouseLeave={() => setHoverEventIdx(null)}
+              />
+              {/* expanded hit area */}
+              <circle
+                cx={cx}
+                cy={cy - 14}
+                r={10}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoverEventIdx(i)}
+                onMouseLeave={() => setHoverEventIdx(null)}
+              />
             </g>
           );
         })}
@@ -534,7 +584,7 @@ const TimelineChart = ({
           <g key={`tick-${i}`}>
             <line x1={x(i)} x2={x(i)} y1={padT + innerH} y2={padT + innerH + 4} stroke="#94a3b8" strokeWidth={1} />
             <text x={x(i)} y={padT + innerH + 16} textAnchor="middle" fontSize={10} fill="#64748b">
-              {formatDate(points[i].timestamp)}
+              {formatTickByRange(points[i].timestamp, range)}
             </text>
           </g>
         ))}
@@ -553,6 +603,21 @@ const TimelineChart = ({
         {/* last point */}
         <circle cx={x(points.length - 1)} cy={y(points[points.length - 1].totalScore)} r={4} fill={stroke} stroke="#fff" strokeWidth={1.5} />
       </svg>
+
+      {hoverEventIdx !== null && events[hoverEventIdx] && (
+        <div
+          className="pointer-events-none absolute z-20 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow"
+          style={{
+            left: `${((x(events[hoverEventIdx].index) / w) * 100).toFixed(2)}%`,
+            top: 0,
+          }}
+        >
+          <p>{events[hoverEventIdx].label}</p>
+          <p className="text-[10px] font-normal text-slate-300">
+            {formatDate(events[hoverEventIdx].timestamp, true)}
+          </p>
+        </div>
+      )}
 
       {hoverIdx !== null && hoverPoint && hoverLevel && hoverRegime && (
         <div
@@ -600,6 +665,7 @@ export default function RadarDashboard() {
   const [asOf, setAsOf] = useState('');
   const [range, setRange] = useState<MarketHistoryRange>('30d');
   const [history, setHistory] = useState<MarketHistoryResponse | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [activeAlerts, setActiveAlerts] = useState<MarketAlert[]>([]);
   const [latestAlerts, setLatestAlerts] = useState<MarketAlert[]>([]);
   const [weights, setWeights] = useState<Record<IndicatorKey, number>>(DEFAULT_WEIGHTS);
@@ -626,10 +692,22 @@ export default function RadarDashboard() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
     fetch(`/api/market/history?range=${range}`)
       .then((r) => r.json())
-      .then((j: MarketHistoryResponse) => setHistory(j))
-      .catch(() => setHistory(null));
+      .then((j: MarketHistoryResponse) => {
+        if (!cancelled) setHistory(j);
+      })
+      .catch(() => {
+        if (!cancelled) setHistory(null);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [range]);
 
   useEffect(() => {
@@ -826,12 +904,21 @@ export default function RadarDashboard() {
               Composite risk score over time — dashed line is 7d moving average, markers flag stress events.
             </p>
           </div>
-          <div className="flex gap-2">
-            {(['30d', '90d', 'all'] as const).map((r) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {historyLoading && (
+              <span
+                aria-label="Loading"
+                className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700"
+              />
+            )}
+            {(['1d', '7d', '30d', '90d', 'all'] as const).map((r) => (
               <button
                 key={r}
+                type="button"
                 onClick={() => setRange(r)}
-                className={`rounded-md border px-3 py-1 text-sm ${
+                disabled={historyLoading && range === r}
+                aria-pressed={range === r}
+                className={`rounded-md border px-3 py-1 text-sm transition-colors ${
                   range === r
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
@@ -894,11 +981,22 @@ export default function RadarDashboard() {
           </>
         ) : null}
 
+        {isRangeUnderfilled(range, points) && (
+          <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            Only limited historical data is available — the dataset currently spans
+            {' '}
+            {computeActualSpanDays(points).toFixed(1)}d, which is shorter than the
+            {' '}
+            {range} window you selected. Showing everything on file.
+          </div>
+        )}
+
         <TimelineChart
           points={points}
           level={risk.level}
           events={events}
           movingAverage={movingAverage}
+          range={range}
           topContributorsAt={topContributorsAt}
           alertsAt={alertsAt}
         />

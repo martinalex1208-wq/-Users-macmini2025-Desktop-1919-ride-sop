@@ -3,8 +3,7 @@ import { buildIndicatorHistory, getSnapshots } from '@/lib/market/historyStore';
 import { MarketHistoryRange, MarketHistoryResponse } from '@/lib/market/types';
 
 const parseRange = (raw: string | null): MarketHistoryRange => {
-  if (raw === '90d') return '90d';
-  if (raw === 'all') return 'all';
+  if (raw === '1d' || raw === '7d' || raw === '30d' || raw === '90d' || raw === 'all') return raw;
   return '30d';
 };
 

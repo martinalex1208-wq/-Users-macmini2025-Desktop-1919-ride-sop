@@ -34,7 +34,7 @@ export interface MarketApiResponse {
   missingSymbols: IndicatorKey[];
 }
 
-export type MarketHistoryRange = '30d' | '90d' | 'all';
+export type MarketHistoryRange = '1d' | '7d' | '30d' | '90d' | 'all';
 export interface MarketHistoryPoint { timestamp: string; totalScore: number; }
 export interface MarketHistoryResponse {
   range: MarketHistoryRange;
